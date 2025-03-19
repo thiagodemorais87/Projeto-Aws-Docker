@@ -63,7 +63,7 @@ O principal objetivo é criar uma infraestrutura que seja **escalável**, **alta
 - Um par de chaves **SSH** prontas para uso no acesso de **instâncias EC2** dentro do ambiente **aws.**
     - Caso não tenha chave **ssh** no ambiente **aws**, clicar em:
         - Recursos **EC2. > D**entro de Network e Security **> Key Pairs > Create New.**
-            - Escolha um Nome**: `Project2` (** recomendado **)**
+            - Escolha um Nome**: `Project` (** recomendado **)**
             - Tipo**: RSA**
             - Formato**: .pem**
             - Clicar em criar que será criado e também baixado automaticamente, porém essa que foi feito o download não será utilizado.
@@ -354,86 +354,18 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
         - **`user` — *[5.1.2 Credential Settings](#credential-settings)***
         - **`password` — *[5.1.2 Credential Settings](#credential-settings)***
         - **Os 2 `EFS_IP` — *[**⚠️ ANOTE Os IPs DO EFS❕**](#efs-ip)***
-    2. Remover os <> e manter apenas os dados anotados anteriormente, para cada campo necessário como no item anterior.
-
-
-    ```bash
-    #!/bin/bash
-    
-    # Atualiza e instala o Docker e o necessário para a conexão com EFS (NFS)
-    yum update -y
-    yum install docker -y
-    
-    # Inicia e habilita o Docker
-    systemctl start docker
-    systemctl enable docker
-    
-    # Adiciona o usuário ec2-user ao grupo docker
-    usermod -a -G docker ec2-user
-    
-    # Instala o Docker Compose
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    
-    # Obtém a zona de disponibilidade (AZ) da instância
-    TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-    AZ=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
-    
-    # Define o IP do EFS com base na AZ
-    case $AZ in
-      "us-east-1a") EFS_IP="10.0.2.18" ;;
-      "us-east-1b") EFS_IP="10.0.4.36" ;;
-      *) echo "AZ não reconhecida"; exit 1 ;;
-    esac
-    
-    # Cria e Monta o diretório EFS
-    mkdir -p /mnt/efs
-    mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 $EFS_IP:/ /mnt/efs
-    mkdir -p /mnt/efs/wordpress_data
-    
-    # Cria o arquivo docker-compose.yml
-    cat <<EOL > /home/ec2-user/docker-compose.yml
-    services:
-      wordpress:
-        image: wordpress:latest
-        ports:
-          - "80:80"
-        environment:
-          WORDPRESS_DB_HOST: <rds-endpoint>  # Ex: db-1.cro2a3b45678.region.amazonaws.com
-          WORDPRESS_DB_USER: <user>          # Ex: admin
-          WORDPRESS_DB_PASSWORD: <password>  # Ex: senha123
-          WORDPRESS_DB_NAME: wordpress
-        volumes:
-          - wordpress_data:/var/www/html
-    
-    volumes:
-      wordpress_data:
-        driver_opts:
-          type: "nfs"
-          o: "addr=$EFS_IP,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-          device: ":/"
-    
-    EOL
-    
-    # Ajusta as permissões do docker-compose e do wordpress_data
-    chown ec2-user:ec2-user /home/ec2-user/docker-compose.yml
-    chown ec2-user:ec2-user /mnt/efs/wordpress_data
-    
-    # Executa o Docker Compose
-    sudo -u ec2-user /usr/local/bin/docker-compose -f /home/ec2-user/docker-compose.yml up -d
-    ```
-    
+   
 1. **Launch Template**
 2. **Voltando ao Auto Scaling Group:**
-    1. Selecione a template criada **`Project2-template`**
+    1. Selecione a template criada **`Project-template`**
     2. **Next!**
 
 ## 7.2 Configuração do Auto Scaling Group
 
 ### **Passo 2: Instance Launch Options:**
 
-- **VPC: `Project2-vpc`**
-- **AZ: `Project2-private-1a` e `Project2-private-1b`**
+- **VPC: `Project-vpc`**
+- **AZ: `Project-private-1a` e `Project-private-1b`**
 - **Distribuição de AZ: `Balanced best effort`**
 - **NEXT!**
 
@@ -451,7 +383,7 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
 - **Min: `2`**
 - **Max: `3`**
 - **Target Tracking Scaling Policy:**
-    - **Nome: `Project2-CPU-scaling-policy`**
+    - **Nome: `Project-CPU-scaling-policy`**
     - Average **CPU** utilization
     - **Target:** 70 (70% ou mais de utilização cria +1 instância)
     - **WarmUp:** 300 (segundos)
@@ -473,14 +405,6 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
 
 - **CREATE AUTO SCALING GROUP!**
 
-## 7.3 Monitore o ASG e veja se criou as instâncias
-
-![image.png](../images/6_asg.png)
-
-![Se a utilização da CPU ultrapassar 70% por alguns minutos, haverá uma escalada no consumo de recursos, refletida no gráfico.](../images/6_2_asg.png)
-
-Se a utilização da CPU ultrapassar 70% por alguns minutos, haverá uma escalada no consumo de recursos, refletida no gráfico.
-
 ---
 
 # ⚖️ 8. Configurando o Load Balancer <a id="configurando-o-load-balancer"></a>
@@ -491,12 +415,12 @@ Se a utilização da CPU ultrapassar 70% por alguns minutos, haverá uma escalad
     - **Clique em: Load Balancers** > **Create Load Balancer**.
     - Escolha **Classic Load Balancer (previous generation)**.
 2. **Configuração Básica e Rede:**
-    - **Nome** (Sugestão): **`Project2-clb`.**
+    - **Nome** (Sugestão): **`Project-clb`.**
     - Scheme**: `Internet-facing`**
-    - VPC**: `Project2-vpc`**
+    - VPC**: `Project-vpc`**
     - Subnets**: Escolha as 2 subnets públicas**
         - Evitar subnets privadas, caso queira reduzir custos com NAT Gateway.
-    - Security Groups: **`Project2-CLB-SG`**
+    - Security Groups: **`Project-CLB-SG`**
 3. **Listeners:**
     - Adicione listeners para:
         - **HTTP (Porta 80)**: Para tráfego não criptografado.
@@ -526,33 +450,12 @@ Se a utilização da CPU ultrapassar 70% por alguns minutos, haverá uma escalad
 **No Console da AWS, em EC2**:
 
 1. Clique em**:** **Auto Scaling Groups**
-2. Selecione o **`Project2-asg`** e clique em **Actions > Edit.**
+2. Selecione o **`Project-asg`** e clique em **Actions > Edit.**
 3. Procure por “Load Balancing - *optional*”
-4. Selecione **Classic Load Balancers > `Project2-clb`**
+4. Selecione **Classic Load Balancers > `Project-clb`**
 5. Vá até o final e clique em **Update**
 
-![image.png](../images/7_load.png)
 
-## 8.3 Teste o Funcionamento
-
-1. Acesse o DNS do CLB no navegador para verificar se o WordPress está funcionando.
-    
-    ![Captura de tela 2025-02-04 220150.png](../images/8_wp.png)
-    
-    ![configuracoes.png](../images/8_2wp.png)
-    
-
-1. Inicie uma conta wordpress e compartilhe o link com terceiros para verificar o funcionamento do site.
-    
-    ![image.png](../images/9_compasslogo.png)
-    
-2. Verifique se as instâncias do Auto Scaling Group estão sendo registradas corretamente.
-
-![Observe que: **2 of 2 instances in service**](../images/10_loadbalancer.png)
-
-Observe que: **2 of 2 instances in service**
-
----
 
 # 🐳 9. Verificação da Configuração no Host EC2 <a id="verificacao-da-configuracao-no-host-ec2"></a>
 
@@ -569,18 +472,16 @@ Para criar um endpoint que te permita se conectar as instâncias **EC2,** deve i
 
 ### Configurações do Endpoint:
 
-- Name tag**: `Project2-EC2-InstConnEndpoint`** (sugestão)
+- Name tag**: `Project-EC2-InstConnEndpoint`** (sugestão)
 - Type**: EC2 Instance Connect Endpoint**
-- VPC**: `Project2-vpc`**
+- VPC**: `Project-vpc`**
 - Additional settings**: Não marcar nada**
-- Security Groups**: `Project2-EC2-SG`**
+- Security Groups**: `Project-EC2-SG`**
 - Subnet**: escolher qualquer subnet PRIVADA  `P2-private-1a` ou  `1b`**
     
     > **OBS:** Mesmo um endpoint criado na 1b como nesse caso pode se conectar a instâncias em diferentes AZ, como a 1a, desde que a **Rede** e os **Security Groups** estejam configurados corretamente.
     > 
 - **Criar Endpoint > Demora um pouco para configurar completamente.**
-
-![image.png](../images/11_.png)
 
 ## 9.2 Usando o Endpoint para se conectar as instâncias
 
@@ -592,8 +493,6 @@ Para entrar na instância EC2 e verificar, editar, monitorar processos entre out
 - EC2 Instance Connect Endpoint: **A opção que acabou de ser criada.**
 - username**: ec2-user**
 - Max tunnel duration (seconds)**: 3600**
-
-![Ex: EC2 Instance Conn Endpoint](../images/12_enndpoint.png)
 
 Ex: EC2 Instance Conn Endpoint
 
