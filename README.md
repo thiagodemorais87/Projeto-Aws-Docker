@@ -40,9 +40,6 @@ O ambiente contará com um banco de dados **MySQL** gerenciado pelo **Amazon RDS
 O principal objetivo é criar uma infraestrutura que seja **escalável**, **altamente disponível**, e que suporte o crescimento do tráfego de forma automatizada. Tudo isso será orquestrado em uma **VPC** (Virtual Private Cloud), que permitirá a criação de subnets tanto públicas quanto privadas para melhor segurança e performance.
 
 ## 1.2 Visão Geral da Arquitetura
-
-![{3434636C-D106-4D8E-B10F-CBE821C5CB68}.png](../images/1_arquitetura.png)
-
 ### **A arquitetura do projeto consiste nos seguintes componentes principais:**
 
 - **Instâncias EC2:** Hospedam os containers **Docker** com a aplicação **WordPress**.
@@ -80,7 +77,7 @@ Nesta etapa, vamos preparar a infraestrutura na **AWS**, criando uma **VPC, sub-
 ## 3.1 Criação da VPC
 
 - Crie uma **VPC** com um bloco CIDR adequado, por exemplo, `10.0.0.0/16`. Isso permite até 65.536 endereços IP privados.
-- Nome Sugerido: `Project2-vpc`
+- Nome Sugerido: `Project-VPC`
 
 ## 3.2 Criar um Internet Gateway (IGW)
 
@@ -145,10 +142,6 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 
 ## 3.7 Resumo das Configurações das Subnets
 
-**Seu Resource Map deve se parecer com:**
-
-![image.png](../images/2_resource_map.png)
-
 | Subnet | AZ | Bloco CIDR | Uso Principal | Tabela de Rotas |
 | --- | --- | --- | --- | --- |
 | **Pública** | us-east-1a | `10.0.1.0/24` | Load Balancer e NAT Gateway | Rota para `0.0.0.0/0` via Internet Gateway |
@@ -162,8 +155,7 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 
 ## **4.1 Grupo de Segurança para o Load Balancer (CLB)**
 
-- **Nome: `Project2-CLB-SG`**
-- **Descrição**: Grupo de segurança para o Application Load Balancer.
+- **Nome: `Project-CLB-SG`**
 
 ### **Regras de Entrada (Inbound)**:
 
@@ -171,23 +163,22 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
     - Tipo**: HTTP**
     - Protocolo**: TCP**
     - Intervalo de portas**: 80**
-    - Origem**: `0.0.0.0/0` (ou restrinja para IPs específicos se necessário).**
+    - Origem**: `0.0.0.0/0` .**
 - **Porta 443 (HTTPS)**:
     - Tipo**: HTTPS**
     - Protocolo**: TCP**
     - Intervalo de portas**: 443**
-    - Origem**: `0.0.0.0/0` (ou restrinja para IPs específicos se necessário).**
+    - Origem**: `0.0.0.0/0`.**
 
 ### **Regras de Saída (Outbound)**:
 
 - Permitir todo o tráfego de saída para as instâncias EC2 na porta 80 **(**editar posteriormente, logo depois do capítulo **4.2).**
-- Selecionar Security Group das EC2 **“`Project2-EC2-SG`”**. Porta **80.**
-- Selecionar Security Group das EC2 **“`Project2-EC2-SG`”**. Porta **443. (caso tenha certificado SSL)**
+- Selecionar Security Group das EC2 **“`Project-EC2-SG`”**. Porta **80.**
+- Selecionar Security Group das EC2 **“`Project-EC2-SG`”**. Porta **443. (caso tenha certificado SSL)**
 
 ## **4.2 Grupo de Segurança para as Instâncias EC2**
 
-- **Nome: `Project2-EC2-SG`**
-- **Descrição:** Grupo de segurança para as instâncias EC2 que hospedam o WordPress.
+- **Nome: `Project-EC2-SG`**
 
 ### **Regras de Entrada (Inbound)**:
 
@@ -195,19 +186,19 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
     - Tipo**: HTTP**
     - Protocolo**: TCP**
     - Intervalo de portas**: 80**
-    - Origem**: ID do grupo de segurança do Load Balancer (`Project2-CLB-SG`).**
+    - Origem**: ID do grupo de segurança do Load Balancer (`Project-CLB-SG`).**
 - **Porta 22 (SSH):** ***¹***
     - Tipo**: SSH**
     - Protocolo**: TCP**
     - Intervalo **de portas: 22**
-    - Origem**: ID do grupo de segurança das EC2 ( `Project2-EC2-SG` )**
+    - Origem**: ID do grupo de segurança das EC2 ( `Project-EC2-SG` )**
     
     - ***¹***  - Não é possível criar essa regra durante a criação do security group, após criação, clique em **Security Groups > `Project2-EC2-SG` > Regras de Entrada > Editar Regras de Entrada.**
 
 ### **Regras de Saída (Outbound)**:
 
 - Permitir todo o tráfego de saída para a internet (ou restrinja conforme necessário).
-    - Tipo**: All Traffic**
+    - Tipo**: Todo Trafego**
 
 ---
 
@@ -216,7 +207,6 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 ## **4.3 Grupo de Segurança para o RDS (MySQL) e EFS**
 
 - **Nome**: `Project2-RDS&EFS-SG`
-- **Descrição**: Grupo de segurança para o banco de dados RDS MySQL.
 
 ### **Regras de Entrada (Inbound)**:
 
@@ -224,21 +214,20 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
     - Tipo**: MySQL/Aurora**
     - Protocolo**: TCP**
     - Intervalo de portas**: 3306**
-    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project2-EC2-SG`).**
+    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project-EC2-SG`).**
 - **Porta 2049:**
     - Tipo**: NFS**
     - Protocolo**: TCP**
     - Intervalo de portas**: 2049**
-    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project2-EC2-SG`).**
+    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project-EC2-SG`).**
 
 ### **Regras de Saída (Outbound):**
 
-- Não é necessário configurar regras de saída para o RDS, pois ele não inicia conexões.
 - **Porta 2049:**
     - Tipo**: NFS**
     - Protocolo**: TCP**
     - Intervalo de portas: **2049**
-    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project2-EC2-SG`).**
+    - Origem**: ID do grupo de segurança das instâncias EC2 (`Project-EC2-SG`).**
 
 ---
 
@@ -252,7 +241,7 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 - Version**: MySQL 8.0.40**
     - Não marque (habilite) nada até **Templates**
 - Template**: Free tier**
-- DB instance identifier**: `project2-db` —**  atualização do **endpoint** da instância RDS, apontando para o novo endereço de conexão.
+- DB instance identifier**: `project-db` —**  atualização do **endpoint** da instância RDS, apontando para o novo endereço de conexão.
 
 ### 5.1.2 Credential Settings <a id="credential-settings"></a>
 
@@ -266,10 +255,10 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 - Storage: **5 GiB — gp2 (SSD)**
     - **❗Desabilitar storage auto scaling (em additional storage configuration)**
 - Connectivity**: Não conectar a um recurso EC2**
-- VPC criada para o projeto: **`Project2-vpc`**
+- VPC criada para o projeto: **`Project-vpc`**
 - DB Subnet Group**: Create new DB Subnet Group**
 - Public access: **NÃO! — Falha de segurança grave!!**
-- Security Group criada para o Database**: `Project2-RDS&EFS-SG`**
+- Security Group criada para o Database**: `Project-RDS&EFS-SG`**
 - AZ**: No preference**
 
 ### 5.1.4 Additional Configuration
@@ -286,11 +275,6 @@ Esse **NAT Gateway** permitirá que as instâncias nas **subnets privadas** aces
 *Pode demorar um pouco, como foi demonstrado no exemplo da imagem abaixo, pois a aws necessita iniciar corretamente os parâmetros da instância, levando um determinado tempo.*
 
 > **Caminho: RDS Console > Databases > Clique no DB criado > Connectivity & Security**
-> 
-
-![Similar com **`db-id.cro2k0q12345.region.rds.amazonaws.com`**](../images/3_connectivity.png)
-
-Similar com **`db-id.cro2k0q12345.region.rds.amazonaws.com`**
 
 ---
 
@@ -305,16 +289,14 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
 1. Acesse o **Console da AWS** e navegue até o serviço **EFS**.
 2. Clique em **"Criar sistema de arquivos"**.
 3. Escolha a **VPC** utilizada nos passos anteriores para garantir compatibilidade com os recursos existentes.
-4. Sugestão de nome como **`Project2-efs`**.
+4. Sugestão de nome como **`Project-efs`**.
 5. Clique em **Customize**
-
-![image.png](../images/4_file_system.png)
 
 ## 6.2 Configurações
 
 ### 6.2.1 Configurações do Sistema de Arquivos
 
-1. Name**: `Project2-efs`**
+1. Name**: `Project-efs`**
 2. File system type**: Regional**
 3. Lifecycle management**: Escolha conforme a necessidade.**
     1. Curtíssima Duração**: None — None — None**
@@ -325,10 +307,10 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
 
 ### 6.2.2 Configurações de Rede
 
-1. VPC**: `Project2-vpc`**
+1. VPC**: `Project-vpc`**
 2. Mount Targets**:**
-    1. **us-east-1a > Private SubNet > `10.0.2.18` > `Project2-RDS&EFS-SG`**
-    2. **us-east-1b > Private SubNet > `10.0.4.36` > `Project2-RDS&EFS-SG`**
+    1. **us-east-1a > Private SubNet > `10.0.2.18` > `Project-RDS&EFS-SG`**
+    2. **us-east-1b > Private SubNet > `10.0.4.36` > `Project-RDS&EFS-SG`**
     3. Use os **ips** que quiser e estejam disponíveis, esses foram para exemplificar.
 
 ### 6.2.3 Configurações de Policy
@@ -342,29 +324,23 @@ O EFS será acessado pelas instâncias EC2 na VPC via protocolo NFS (já configu
 
 **Caminho: EFS > File Systems > Clique no EFS criado > Network**
 
-![image.png](../images/5_1_policy.png)
-
-![devem ficar na mesma faixa CIDR das subnets](../images/5_2_ipaddress.png)
-
-Devem estar na mesma faixa CIDR das sub-redes configuradas.
-
 ---
 
 # ⬆️ 7. Configuração do Auto Scaling Group
 
-- Escolha o nome do Auto Scaling Group, sugestão: **`Project2-asg`**
+- Escolha o nome do Auto Scaling Group, sugestão: **`Project-asg`**
 - Clique em “**Create a launch template**” (caso não tenha o template, caso tenha, ignore a etapa **9.1**).
 
 ## 7.1 Configuração de Template <a id="configuracao-do-auto-scaling-group"></a>
 
 
-1. Nome do Template (sugestão)**: `Project2-template`** 
+1. Nome do Template (sugestão)**: `Project-template`** 
 2. Descrição (sugestão)**: wordpress webservers**
 3. Imagem: **`Amazon Linux 2023 AMI`**
 4. Tipo**: t2.micro**
 5. **Chave ssh**
 6. Subnet: **não inclua no launch template**
-7. Security Group**: `Project2-EC2-SG`**
+7. Security Group**: `Project-EC2-SG`**
 8. Storage: **Apenas o padrão da imagem**
 9. Tags**: O que for necessário para as instâncias EC2**
 
